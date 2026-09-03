@@ -1,0 +1,28 @@
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Local credentials & configs
+.env
+*.pem
+*.key
+
+# Data dumps & large fixtures
+*.csv
+*.parquet
+*.h5
+*.sqlite3
+data/cache/
+
+# IDE & OS files
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
