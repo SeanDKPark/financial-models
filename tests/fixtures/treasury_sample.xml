@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns:base="https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml"
+      xmlns:d="http://schemas.microsoft.com/ado/2007/08/dataservices"
+      xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata"
+      xmlns="http://www.w3.org/2005/Atom">
+  <title type="text">Daily Treasury Par Yield Curve Rates</title>
+  <entry>
+    <content type="application/xml">
+      <m:properties>
+        <d:NEW_DATE m:type="Edm.DateTime">2025-01-02T00:00:00</d:NEW_DATE>
+        <d:BC_1MONTH m:type="Edm.Double">4.30</d:BC_1MONTH>
+        <d:BC_2MONTH m:type="Edm.Double">4.32</d:BC_2MONTH>
+        <d:BC_3MONTH m:type="Edm.Double">4.35</d:BC_3MONTH>
+        <d:BC_4MONTH m:type="Edm.Double">4.34</d:BC_4MONTH>
+        <d:BC_6MONTH m:type="Edm.Double">4.28</d:BC_6MONTH>
+        <d:BC_1YEAR m:type="Edm.Double">4.16</d:BC_1YEAR>
+        <d:BC_2YEAR m:type="Edm.Double">4.25</d:BC_2YEAR>
+        <d:BC_3YEAR m:type="Edm.Double">4.29</d:BC_3YEAR>
+        <d:BC_5YEAR m:type="Edm.Double">4.38</d:BC_5YEAR>
+        <d:BC_7YEAR m:type="Edm.Double">4.48</d:BC_7YEAR>
+        <d:BC_10YEAR m:type="Edm.Double">4.57</d:BC_10YEAR>
+        <d:BC_20YEAR m:type="Edm.Double">4.86</d:BC_20YEAR>
+        <d:BC_30YEAR m:type="Edm.Double">4.79</d:BC_30YEAR>
+      </m:properties>
+    </content>
+  </entry>
+  <entry>
+    <content type="application/xml">
+      <m:properties>
+        <d:NEW_DATE m:type="Edm.DateTime">2025-01-03T00:00:00</d:NEW_DATE>
+        <d:BC_1MONTH m:type="Edm.Double">4.31</d:BC_1MONTH>
+        <d:BC_1_5MONTH m:type="Edm.Double">4.32</d:BC_1_5MONTH>
+        <d:BC_2MONTH m:type="Edm.Double">4.33</d:BC_2MONTH>
+        <d:BC_3MONTH m:type="Edm.Double">4.36</d:BC_3MONTH>
+        <d:BC_4MONTH m:type="Edm.Double">4.35</d:BC_4MONTH>
+        <d:BC_6MONTH m:type="Edm.Double">4.29</d:BC_6MONTH>
+        <d:BC_1YEAR m:type="Edm.Double">4.18</d:BC_1YEAR>
+        <d:BC_2YEAR m:type="Edm.Double">4.28</d:BC_2YEAR>
+        <d:BC_3YEAR m:type="Edm.Double">4.31</d:BC_3YEAR>
+        <d:BC_5YEAR m:type="Edm.Double">4.40</d:BC_5YEAR>
+        <d:BC_7YEAR m:type="Edm.Double">4.50</d:BC_7YEAR>
+        <d:BC_10YEAR m:type="Edm.Double">4.60</d:BC_10YEAR>
+        <d:BC_20YEAR m:type="Edm.Double">4.89</d:BC_20YEAR>
+        <d:BC_30YEAR m:type="Edm.Double">4.82</d:BC_30YEAR>
+      </m:properties>
+    </content>
+  </entry>
+</feed>
