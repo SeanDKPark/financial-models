@@ -13,7 +13,7 @@ valuation, reporting, and visualization code.
 flowchart TD
     subgraph ingest["Market data (finmodels.market_data)"]
         TFEED["treasury.gov XML / CSV feeds"]
-        TPAR["treasury_par.py<br/>fetch_treasury_par_curve()<br/>fetch_treasury_par_history()"]
+        TPAR["treasury_par.py<br/>fetch_treasury_par_curve()<br/>fetch_treasury_par_history()<br/>parse_* helpers"]
         THIST["TreasuryParHistory"]
         TFEED --> TPAR
         TPAR --> THIST
@@ -33,7 +33,7 @@ flowchart TD
         SCIPY["_ScipyZeroCurve<br/>+ instantaneous_forward_rate"]
         CUB["CubicZeroInterpolator"]
         PCH["PchipZeroInterpolator"]
-        SVEN["SvenssonCurve<br/>+ instantaneous_forward_rate<br/>+ calibrate() classmethod"]
+        SVEN["SvenssonCurve<br/>+ instantaneous_forward_rate<br/>+ calibrate() / nelson_siegel() classmethods"]
         HW["HaganWestInterpolator<br/>monotone-convex forwards<br/>+ instantaneous_forward_rate"]
         BASE --> LIN
         BASE --> SCIPY
@@ -43,15 +43,21 @@ flowchart TD
         BASE --> HW
     end
 
-    subgraph consume["Valuation & reporting"]
+    subgraph instr["Instruments (finmodels.instruments)"]
+        BOND["FixedCouponBond<br/>CashFlow, DayCountConvention<br/>schedule / accrual / cashflows(settlement)"]
+    end
+
+    subgraph price["Pricing (finmodels.pricing)"]
+        YM["yield math<br/>dirty/clean_price_from_ytm, bond_ytm,<br/>bond_yield_risk"]
+        PB["price_bond() -> BondPriceResult<br/>bond_effective_duration_convexity()<br/>bond_key_rate_durations() / key_rate_weight()"]
+    end
+
+    subgraph consume["Reporting & visualization"]
         VIZ["visualization/term_structure.py<br/>plot_term_structure()"]
-        SCRIPTS["scripts/*.py<br/>demo, excel export, term-structure &<br/>interpolator-comparison reports"]
-        VIZ --> SCRIPTS
+        SCRIPTS["scripts/*.py<br/>demo, Excel export, term-structure &<br/>interpolator comparison, bond quote checks"]
     end
 
     subgraph stubs["Stubbed (namespace only)"]
-        INSTR["instruments/"]
-        PRICE["pricing/"]
         UTILS["utils/"]
     end
 
@@ -62,6 +68,16 @@ flowchart TD
     LIN -.->|"pillars, zero_rates"| PCH
     LIN -.->|"pillars, zero_rates (calibrate)"| SVEN
     LIN -.->|"pillars, zero_rates"| HW
+
+    BOND -->|"year_fraction times, amounts"| PB
+    LIN --> PB
+    CUB --> PB
+    PCH --> PB
+    SVEN --> PB
+    HW --> PB
+    BOND --> YM
+    PB --> YM
+
     CMD --> VIZ
     LIN --> VIZ
     CUB --> SCRIPTS
@@ -69,6 +85,8 @@ flowchart TD
     LIN --> SCRIPTS
     BOOT --> SCRIPTS
     TPAR --> SCRIPTS
+    BOND --> SCRIPTS
+    PB --> SCRIPTS
 ```
 
 ## Layers
@@ -78,8 +96,8 @@ flowchart TD
 home.treasury.gov: the XML feed (`fetch_treasury_par_curve` -> a single
 `CurveMarketData`) and the daily-rates CSV (`fetch_treasury_par_history` ->
 `TreasuryParHistory`, one year of rows in percentage points). Parsing is split
-into `parse_*` helpers so tests run offline against fixtures. Failures raise
-`TreasuryFetchError`.
+into `parse_treasury_par_curve` / `parse_treasury_par_history` helpers so tests
+run offline against fixtures. Failures raise `TreasuryFetchError`.
 
 ### 2. Data container — `finmodels.curves.data_models`
 `CurveMarketData` is a validated dataclass: `pillars` (years, strictly
@@ -100,8 +118,8 @@ input par bonds exactly.
 `zero_rate` and `discount_factor`; the base supplies `forward_rate` and the
 vectorized `forward_rate_rolling` (continuous / simple / semi-annual), derived
 purely from discount factors. `finmodels.curves.__init__` re-exports
-`BaseYieldCurve`, the three interpolators, `CurveMarketData`,
-`ParToZeroBootstrapper`, and `bootstrap_par_curve`.
+`BaseYieldCurve`, the five curves, `CurveMarketData`, `ParToZeroBootstrapper`,
+and `bootstrap_par_curve`.
 
 | Curve | Backing | Notes |
 |---|---|---|
@@ -133,15 +151,54 @@ slope/curvature loadings, separated decay terms) plus a penalty keeping
 "calibrator" arm of the pipeline, parallel to the bootstrapper.
 `SvenssonCurve.nelson_siegel(...)` is the 4-parameter special case.
 
-### 5. Valuation, reporting & visualization
+### 5. Instruments — `finmodels.instruments`
+`bond.py` is curve-independent calendar math. `FixedCouponBond` owns
+backward-rolled semi-annual schedules (End-of-Month aware), day-count
+conventions (`DayCountConvention`: `ACT/ACT_ICMA`, `30/360_US`), accrued
+interest, and the settlement-relative discounting times. `cashflows(settlement)`
+returns a list of `CashFlow` records — each carrying `year_fraction` (the
+discounting time `t_i` a pricing layer feeds to a `BaseYieldCurve`),
+`accrual_factor`, `coupon`, `principal`, `amount`. Scope is US Treasury
+notes/bonds: regular schedules only, no stub periods. `__init__` re-exports
+`CashFlow`, `DayCountConvention`, `FixedCouponBond`.
+
+### 6. Pricing — `finmodels.pricing`
+`bond.py` values a `FixedCouponBond`, taking cashflow times/amounts from the
+instrument and discount factors from any `BaseYieldCurve`.
+
+* **Pure yield math** (semi-annual / `m = frequency` compounding on the bond's
+  own `year_fraction` times): `dirty_price_from_ytm`, `clean_price_from_ytm`,
+  `bond_ytm` (Newton-Raphson with an analytic derivative, `scipy.optimize.brentq`
+  fallback over `[-0.10, 1.00]`), `bond_yield_risk` -> `(macaulay_duration,
+  modified_duration, dv01, convexity)`.
+* **Curve pricing**: `price_bond(bond, curve, settlement)` discounts the
+  cashflows on the curve and back-solves the implied yield, returning
+  `BondPriceResult` (clean/dirty price, accrued, ytm, durations, dv01,
+  convexity). `bond_effective_duration_convexity` measures a symmetric parallel
+  bump of the semi-annually compounded zero curve.
+  `bond_key_rate_durations` (with `DEFAULT_KRD_PILLARS` and the tent-weight
+  helper `key_rate_weight`) bumps each pillar's zero rate by a tent-weighted
+  `z2` shift; because the weights partition unity the KRDs sum to the effective
+  duration.
+
+`finmodels.pricing.__init__` re-exports `BondPriceResult`, `price_bond`,
+`dirty_price_from_ytm`, `clean_price_from_ytm`, `bond_ytm`,
+`bond_effective_duration_convexity`, `bond_key_rate_durations`,
+`DEFAULT_KRD_PILLARS`.
+
+### 7. Reporting & visualization
 `visualization/term_structure.py::plot_term_structure` takes a `CurveMarketData`
 plus any `BaseYieldCurve` and renders par / zero / rolling-forward panels.
-`scripts/` holds executable reports (live-data demo, formula-driven Excel export,
-term-structure chart, Linear vs Cubic vs PCHIP comparison).
+`scripts/` holds executable reports: `demo_treasury_curve.py` (live-data demo),
+`export_curve_to_excel.py` (formula-driven Excel export),
+`term_structure_report.py` (term-structure chart), `compare_interpolators.py` /
+`compare_curves.py` (Linear vs Cubic vs PCHIP / cross-model comparison),
+`inspect_bond.py`, `verify_real_bonds.py`, `verify_market_quotes.py` (bond
+clean-price / yield checks against vendor quotes).
 
-### 6. Stubbed
-`instruments/`, `pricing/`, and `utils/` exist as empty packages — namespace
-placeholders with no implementation yet.
+### 8. Stubbed
+`utils/` exists as an empty package — a namespace placeholder with no
+implementation yet.
 
 ## Test suites (`tests/`)
 
@@ -153,7 +210,8 @@ placeholders with no implementation yet.
 | `test_splines.py` | both spline curves (parametrized): pillar interpolation, analytical forward, smoother-than-linear check | offline |
 | `test_parametric.py` | `SvenssonCurve`: closed-form checks, limits, analytical vs finite-difference forward, calibration round-trip | offline |
 | `test_monotone_convex.py` | `HaganWestInterpolator`: pillar invariance (1e-10), per-interval integral repricing via `scipy.integrate.quad` (1e-7), flat-curve, positivity on 1000-pt grid, no-shark-fin | offline |
+| `test_bond_instrument.py` | `FixedCouponBond`: EOM schedule roll, ACT/ACT_ICMA + 30/360_US accrual, `coupon_period`, `cashflows` year-fractions | offline |
+| `test_bond_pricing.py` | yield math (price<->ytm round-trip, Newton/brentq), duration/dv01/convexity, `price_bond` on curves, effective & key-rate durations | offline |
 | `test_visualization.py` | `plot_term_structure` figure structure and file output (Agg backend) | offline |
 
 Run `pytest -m "not network"` for the fast offline suite.
-
