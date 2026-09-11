@@ -1,5 +1,10 @@
 """Market data ingestion adapters."""
 
+from finmodels.market_data.liu_wu import (
+    FredFetchError,
+    fetch_liu_wu_curve,
+    search_liu_wu_series,
+)
 from finmodels.market_data.treasury_par import (
     TreasuryFetchError,
     TreasuryParHistory,
@@ -22,4 +27,7 @@ __all__ = [
     "parse_treasury_par_history",
     "fetch_treasury_curve",
     "parse_treasury_curve",
+    "FredFetchError",
+    "fetch_liu_wu_curve",
+    "search_liu_wu_series",
 ]
