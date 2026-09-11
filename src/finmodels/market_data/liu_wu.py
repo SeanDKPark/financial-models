@@ -27,12 +27,12 @@ defaults are wrong.
 
 from __future__ import annotations
 
-import os
 from datetime import date, datetime
 
 import numpy as np
 import requests
 
+from finmodels.config import MissingAPIKeyError, get_api_key
 from finmodels.curves.data_models import CurveMarketData
 
 _FRED_OBSERVATIONS_URL = "https://api.stlouisfed.org/fred/series/observations"
@@ -61,14 +61,14 @@ class FredFetchError(RuntimeError):
 
 
 def _resolve_api_key(api_key: str | None) -> str:
-    key = api_key or os.environ.get(_API_KEY_ENV_VAR)
-    if not key:
+    if api_key:
+        return api_key
+    try:
+        return get_api_key(_API_KEY_ENV_VAR)
+    except MissingAPIKeyError as exc:
         raise FredFetchError(
-            f"no FRED API key provided; pass api_key= or set the "
-            f"{_API_KEY_ENV_VAR} environment variable "
-            f"(get a free key at https://fred.stlouisfed.org)"
-        )
-    return key
+            f"no FRED API key provided; pass api_key=, or see {exc}"
+        ) from exc
 
 
 def search_liu_wu_series(
